@@ -32,6 +32,14 @@ class GeneratorAgent:
         Returns:
             Generated README content in Markdown format
         """
+        # If existing README is good and we have minimal info, prefer existing
+        existing_readme = analysis.get('existing_readme', '')
+        has_minimal_info = not analysis.get('dependencies') and not analysis.get('frameworks')
+        
+        if existing_readme and has_minimal_info and len(existing_readme) > 100:
+            print("ℹ️ Existing README is better than what we can generate - keeping it")
+            return existing_readme
+        
         prompt = self._build_prompt(analysis)
         
         try:
@@ -40,11 +48,38 @@ class GeneratorAgent:
             # Clean up response if needed
             readme_content = self._clean_response(readme_content)
             
+            # Check if LLM generated garbage (full of "Unknown" or placeholder text)
+            if self._is_low_quality(readme_content):
+                print("⚠️ LLM generated low-quality content, using existing or fallback")
+                if existing_readme and len(existing_readme) > 100:
+                    return existing_readme
+                return self._generate_fallback(analysis)
+            
             return readme_content
             
         except Exception as e:
             print(f"⚠️ LLM generation failed: {e}")
+            # If existing README exists and is decent, use it
+            if existing_readme and len(existing_readme) > 100:
+                print("ℹ️ Using existing README as fallback")
+                return existing_readme
             return self._generate_fallback(analysis)
+    
+    def _is_low_quality(self, content: str) -> bool:
+        """Check if generated README is low quality"""
+        content_lower = content.lower()
+        
+        # Count red flags
+        red_flags = [
+            content.count('unknown') > 3,
+            content.count('n/a') > 2,
+            '[insert' in content_lower,
+            '[todo' in content_lower,
+            'our team' in content_lower and 'company' not in content_lower,
+            len(content) < 200,
+        ]
+        
+        return sum(red_flags) >= 2
     
     def _build_prompt(self, analysis: Dict) -> str:
         """Build intelligent prompt for README generation"""
@@ -97,49 +132,70 @@ class GeneratorAgent:
         structure_tree = self._format_directory_tree(structure, max_items=20)
         
         # Build sections to include based on available data
-        sections = ["# Title with relevant badge (language badge from shields.io)"]
-        sections.append("## Description (engaging 2-3 sentences about what this does)")
-        sections.append("## Features (bullet points based on actual capabilities)")
+        sections = ["# Title (just the project name)"]
+        
+        if description or main_purpose:
+            sections.append("## Description (brief and honest)")
+        
+        if key_features or frameworks or primary_lang:
+            sections.append("## Features (ONLY list real, detectable features)")
         
         if languages or frameworks:
-            sections.append("## Tech Stack (table format with actual technologies)")
+            sections.append("## Tech Stack (table with ONLY known technologies)")
         
-        if primary_lang:
-            sections.append(f"## Installation (step-by-step for {primary_lang})")
-            sections.append("## Usage (realistic code examples)")
+        if structure and len(structure) > 1:
+            sections.append("## Project Structure")
         
-        if structure:
-            sections.append("## Project Structure (explain key directories)")
+        if primary_lang and dependencies:
+            sections.append(f"## Installation (ONLY if there are dependencies to install)")
         
-        sections.append("## Contributing (brief guidelines)")
+        if primary_lang and (key_features or frameworks):
+            sections.append("## Usage (ONLY if you can infer how it's used)")
         
         if username:
-            sections.append(f"## Author ({username} with GitHub link)")
+            sections.append(f"## Author")
         
-        prompt = f"""Create a professional README.md for this GitHub repository.
+        # Determine if this is a personal or organizational account
+        is_personal = True  # Assume personal unless proven otherwise
+        
+        # Check if there's enough information to generate a good README
+        has_enough_info = bool(description or main_purpose or key_features or frameworks or dependencies)
+        
+        if not has_enough_info and existing_readme:
+            # If we don't have enough info and there's an existing README, suggest keeping it
+            note = "\n**NOTE**: This repository has limited detectable information. The existing README may be better. Consider keeping it if it's already good."
+        else:
+            note = ""
+        
+        prompt = f"""You are writing a README for a PERSONAL GitHub repository (not a company/team project).
 
-{chr(10).join(context_parts)}
+{chr(10).join(context_parts) if context_parts else "**WARNING**: Very limited information available."}
 
 **Directory Structure**:
 ```
 {structure_tree}
 ```
 
-{f"**Existing README (use as reference, improve upon it)**:{chr(10)}{existing_readme[:1000]}" if existing_readme else ""}
+{f"**Existing README (reference - improve if you can, but it might already be good)**:{chr(10)}{existing_readme[:800]}" if existing_readme else ""}
 
-**IMPORTANT RULES**:
-- NEVER write "Unknown" or "N/A" - if you don't know something, skip that section entirely
-- NEVER make up fake features or technologies not mentioned
-- NEVER include a License section unless you see a LICENSE file in the structure
-- DO use the actual repository name, languages, and frameworks provided
-- DO make installation steps realistic for the detected language
-- DO infer project purpose from the name and structure if description is empty
-- DO use emojis sparingly for section headers (🚀, 📦, ⚙️, etc.)
+**CRITICAL RULES - FOLLOW EXACTLY**:
+1. ❌ NEVER use "Unknown", "N/A", "[Insert...]", "[TODO]" - if you don't know, SKIP that part entirely
+2. ❌ NEVER use corporate language like "our team", "we", "passionate", "revolutionary" for personal repos
+3. ❌ NEVER make up features, frameworks, or technologies not explicitly mentioned
+4. ❌ NEVER include License section unless there's a LICENSE file in the structure
+5. ❌ NEVER include Installation section if there are no dependencies or build steps
+6. ✅ DO use simple, direct language (this is ONE person's repo, not a team)
+7. ✅ DO skip any section you can't fill with real information
+8. ✅ DO keep it minimal and honest - better to have 3 good sections than 10 vague ones
+9. ✅ DO use existing README content as a reference if it's already good
 
-**Sections to include**:
-{chr(10).join(f"{i+1}. {s}" for i, s in enumerate(sections))}
+**Tone**: Simple, direct, personal. Write as if YOU are the {username} explaining your own project.
 
-Output ONLY the README markdown, no explanations or comments."""
+**Sections to consider** (ONLY include if you have real content):
+{chr(10).join(f"- {s}" for s in sections)}
+{note}
+
+Generate the README now. Keep it SHORT and REAL. No fluff, no corporate speak, no placeholders."""
 
         return prompt
     
@@ -185,13 +241,24 @@ Output ONLY the README markdown, no explanations or comments."""
         return content.strip()
     
     def _generate_fallback(self, analysis: Dict) -> str:
-        """Generate basic README if LLM fails - only includes known information"""
+        """Generate minimal README if LLM fails - prefer existing if better"""
+        
+        existing_readme = analysis.get('existing_readme', '')
         
         repo_name = analysis.get('repo_name', '')
         short_name = analysis.get('repo_short_name', 'project')
         description = analysis.get('description', '')
         primary_lang = analysis.get('primary_language', '')
         frameworks = analysis.get('frameworks', [])
+        dependencies = analysis.get('dependencies', [])
+        username = analysis.get('username', '')
+        structure = analysis.get('structure', [])
+        
+        # If we have minimal info and existing README is decent, keep it
+        has_minimal_info = not dependencies and not frameworks and not description
+        if has_minimal_info and existing_readme and len(existing_readme) > 50:
+            print("ℹ️ Keeping existing README (better than minimal fallback)")
+            return existing_readme
         dependencies = analysis.get('dependencies', [])
         username = analysis.get('username', '')
         structure = analysis.get('structure', [])

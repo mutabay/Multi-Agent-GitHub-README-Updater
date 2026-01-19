@@ -48,26 +48,41 @@ class ReviewerAgent:
         """Build prompt for README review"""
         
         repo_name = analysis.get('repo_short_name', 'project')
-        primary_lang = analysis.get('primary_language', 'Unknown')
+        primary_lang = analysis.get('primary_language', '')
         frameworks = analysis.get('frameworks', [])
+        username = analysis.get('username', '')
         
-        prompt = f"""You are a senior technical writer reviewing a README.md file.
+        # Check if README has problems
+        has_unknown = 'unknown' in readme_content.lower()
+        has_placeholders = '[insert' in readme_content.lower() or '[todo' in readme_content.lower()
+        has_corporate = 'our team' in readme_content.lower()
+        
+        prompt = f"""Review and improve this README for a PERSONAL repository.
 
-**Project**: {repo_name}
-**Language**: {primary_lang}
-**Frameworks**: {', '.join(frameworks) if frameworks else 'None'}
+**Project**: {repo_name} (by {username})
+**Language**: {primary_lang or 'Not specified'}
+**Frameworks**: {', '.join(frameworks) if frameworks else 'None detected'}
 
 **README to Review**:
 ```markdown
-{readme_content[:2500]}
+{readme_content[:2000]}
 ```
 
-**Your Task**: Improve this README by:
-1. Fixing any formatting issues (proper markdown)
-2. Making descriptions more engaging and clear
-3. Ensuring code blocks have correct language hints
-4. Adding missing emojis for visual appeal (but don't overdo it)
-5. Making sure installation steps are accurate for {primary_lang}
+**Critical Issues to Fix**:
+{f"- ❌ Remove ALL instances of 'Unknown', 'N/A', placeholders" if has_unknown or has_placeholders else ""}
+{f"- ❌ Remove corporate language ('our team', 'we', 'passionate') - this is a personal repo" if has_corporate else ""}
+- ❌ Remove any sections that don't have real content
+- ❌ Remove License section if there's no LICENSE file mentioned
+
+**Improvements**:
+1. Fix markdown formatting issues
+2. Make language simple and direct (personal, not corporate)
+3. Remove fluff and placeholder text
+4. Keep only sections with real information
+5. Ensure code blocks have correct language hints
+6. Use minimal emojis (1-2 per section header max)
+
+**Output ONLY the improved README**, no explanations.
 6. Ensuring professional tone throughout
 
 Output ONLY the improved README, no explanations or comments."""
