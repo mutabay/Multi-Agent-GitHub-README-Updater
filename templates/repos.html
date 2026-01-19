@@ -1,0 +1,454 @@
+{% extends "base.html" %}
+
+{% block title %}Your Repositories - README Updater{% endblock %}
+
+{% block extra_head %}
+<style>
+    .page-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border-radius: 20px;
+        padding: 2.5rem;
+        margin-bottom: 2rem;
+        color: white;
+    }
+    
+    .stat-card {
+        background: rgba(255, 255, 255, 0.2);
+        backdrop-filter: blur(10px);
+        border-radius: 12px;
+        padding: 1rem 1.5rem;
+    }
+    
+    .search-bar {
+        background: white;
+        border-radius: 16px;
+        padding: 1.5rem;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+        margin-top: -40px;
+        position: relative;
+        z-index: 10;
+    }
+    
+    .repo-card {
+        background: white;
+        border-radius: 16px;
+        border: 1px solid #e5e7eb;
+        transition: all 0.3s ease;
+        overflow: hidden;
+    }
+    
+    .repo-card:hover {
+        border-color: #667eea;
+        box-shadow: 0 10px 40px rgba(102, 126, 234, 0.15);
+        transform: translateY(-4px);
+    }
+    
+    .repo-card.selected {
+        border-color: #667eea;
+        border-width: 2px;
+        background: linear-gradient(135deg, rgba(102, 126, 234, 0.05) 0%, rgba(118, 75, 162, 0.05) 100%);
+    }
+    
+    .repo-card-header {
+        padding: 1.25rem;
+        border-bottom: 1px solid #f3f4f6;
+    }
+    
+    .repo-card-body {
+        padding: 1.25rem;
+    }
+    
+    .language-badge {
+        display: inline-flex;
+        align-items: center;
+        padding: 0.35rem 0.75rem;
+        border-radius: 20px;
+        font-size: 0.75rem;
+        font-weight: 600;
+        background: #f3f4f6;
+        color: #4b5563;
+    }
+    
+    .language-dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        margin-right: 6px;
+    }
+    
+    .repo-stats {
+        display: flex;
+        gap: 1rem;
+        font-size: 0.85rem;
+        color: #6b7280;
+    }
+    
+    .checkbox-custom {
+        width: 22px;
+        height: 22px;
+        border-radius: 6px;
+    }
+    
+    .floating-action {
+        position: fixed;
+        bottom: 30px;
+        right: 30px;
+        z-index: 1000;
+    }
+    
+    .floating-action .btn {
+        padding: 1rem 2rem;
+        border-radius: 50px;
+        font-weight: 600;
+        box-shadow: 0 10px 40px rgba(102, 126, 234, 0.4);
+    }
+    
+    .visibility-badge {
+        font-size: 0.7rem;
+        padding: 0.25rem 0.5rem;
+        border-radius: 20px;
+    }
+    
+    .filter-pill {
+        padding: 0.5rem 1rem;
+        border-radius: 50px;
+        border: 1px solid #e5e7eb;
+        background: white;
+        font-size: 0.875rem;
+        cursor: pointer;
+        transition: all 0.2s ease;
+    }
+    
+    .filter-pill:hover {
+        border-color: #667eea;
+        color: #667eea;
+    }
+    
+    .filter-pill.active {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border-color: transparent;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Page Header -->
+<div class="page-header">
+    <div class="row align-items-center">
+        <div class="col-lg-8">
+            <h1 class="h2 fw-bold mb-2">
+                <i class="bi bi-folder2-open me-2"></i>Your Repositories
+            </h1>
+            <p class="mb-0 opacity-75">
+                Select repositories to generate AI-powered README documentation
+            </p>
+        </div>
+        <div class="col-lg-4">
+            <div class="row g-3 mt-lg-0 mt-3">
+                <div class="col-6">
+                    <div class="stat-card text-center">
+                        <div class="h3 mb-0 fw-bold">{{ repositories|length }}</div>
+                        <small class="opacity-75">Total Repos</small>
+                    </div>
+                </div>
+                <div class="col-6">
+                    <div class="stat-card text-center">
+                        <div class="h3 mb-0 fw-bold" id="selected-count">0</div>
+                        <small class="opacity-75">Selected</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Search & Filter Bar -->
+<div class="search-bar mb-4">
+    <div class="row align-items-center g-3">
+        <div class="col-lg-4">
+            <div class="input-group">
+                <span class="input-group-text bg-transparent border-end-0">
+                    <i class="bi bi-search text-muted"></i>
+                </span>
+                <input type="text" 
+                       class="form-control border-start-0 ps-0" 
+                       placeholder="Search repositories..."
+                       id="search-input">
+            </div>
+        </div>
+        <div class="col-lg-3">
+            <div class="form-check">
+                <input class="form-check-input" type="checkbox" id="select-all-checkbox" onclick="toggleSelectAll()">
+                <label class="form-check-label fw-medium" for="select-all-checkbox">
+                    <i class="bi bi-check2-all me-1"></i>Select All Visible
+                </label>
+            </div>
+        </div>
+        <div class="col-lg-5">
+            <div class="d-flex flex-wrap gap-2 justify-content-lg-end">
+                <button class="filter-pill active" data-filter="all">
+                    <i class="bi bi-grid me-1"></i> All
+                </button>
+                <button class="filter-pill" data-filter="public">
+                    <i class="bi bi-unlock me-1"></i> Public
+                </button>
+                <button class="filter-pill" data-filter="private">
+                    <i class="bi bi-lock me-1"></i> Private
+                </button>
+                <button class="filter-pill" data-filter="no-readme">
+                    <i class="bi bi-file-earmark-x me-1"></i> No README
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Repository Grid -->
+<form action="{{ url_for('generate') }}" method="POST" id="repo-form">
+    <div class="row g-4" id="repo-grid">
+        {% for repo in repositories %}
+        <div class="col-lg-4 col-md-6 repo-item" 
+             data-name="{{ repo.name|lower }}"
+             data-visibility="{{ 'private' if repo.private else 'public' }}"
+             data-has-readme="{{ 'yes' if repo.has_readme else 'no' }}">
+            <div class="repo-card h-100" onclick="toggleSelect(this)">
+                <input type="checkbox" 
+                       name="selected_repos" 
+                       value="{{ repo.full_name }}"
+                       class="d-none repo-checkbox">
+                
+                <div class="repo-card-header">
+                    <div class="d-flex align-items-start justify-content-between">
+                        <div class="flex-grow-1">
+                            <div class="d-flex align-items-center mb-2">
+                                <input type="checkbox" 
+                                       class="form-check-input checkbox-custom me-2"
+                                       onclick="event.stopPropagation()">
+                                <h5 class="mb-0 fw-semibold text-truncate" style="max-width: 200px;">
+                                    {{ repo.name }}
+                                </h5>
+                            </div>
+                            {% if repo.description %}
+                            <p class="text-muted small mb-0 text-truncate" 
+                               title="{{ repo.description }}">
+                                {{ repo.description }}
+                            </p>
+                            {% else %}
+                            <p class="text-muted small mb-0 fst-italic">No description</p>
+                            {% endif %}
+                        </div>
+                        {% if repo.private %}
+                        <span class="visibility-badge bg-warning-subtle text-warning-emphasis">
+                            <i class="bi bi-lock-fill"></i>
+                        </span>
+                        {% else %}
+                        <span class="visibility-badge bg-success-subtle text-success-emphasis">
+                            <i class="bi bi-unlock-fill"></i>
+                        </span>
+                        {% endif %}
+                    </div>
+                </div>
+                
+                <div class="repo-card-body">
+                    <div class="d-flex align-items-center justify-content-between mb-3">
+                        {% if repo.language %}
+                        <span class="language-badge">
+                            <span class="language-dot" style="background-color: {{ get_language_color(repo.language) }}"></span>
+                            {{ repo.language }}
+                        </span>
+                        {% else %}
+                        <span class="language-badge">
+                            <span class="language-dot" style="background-color: #ccc"></span>
+                            Unknown
+                        </span>
+                        {% endif %}
+                        
+                        {% if repo.has_readme %}
+                        <span class="badge bg-success-subtle text-success-emphasis">
+                            <i class="bi bi-file-earmark-check me-1"></i>Has README
+                        </span>
+                        {% else %}
+                        <span class="badge bg-danger-subtle text-danger-emphasis">
+                            <i class="bi bi-file-earmark-x me-1"></i>No README
+                        </span>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="repo-stats">
+                        <span title="Stars">
+                            <i class="bi bi-star-fill text-warning"></i>
+                            {{ repo.stars }}
+                        </span>
+                        <span title="Forks">
+                            <i class="bi bi-diagram-2"></i>
+                            {{ repo.forks }}
+                        </span>
+                        <span title="Last updated">
+                            <i class="bi bi-clock"></i>
+                            {{ repo.updated_at.strftime('%b %d') if repo.updated_at else 'N/A' }}
+                        </span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    
+    <!-- Empty State -->
+    {% if not repositories %}
+    <div class="text-center py-5">
+        <div class="mb-4">
+            <i class="bi bi-inbox display-1 text-muted"></i>
+        </div>
+        <h4 class="text-muted">No Repositories Found</h4>
+        <p class="text-muted">We couldn't find any repositories in your account.</p>
+    </div>
+    {% endif %}
+    
+    <!-- Floating Action Button -->
+    <div class="floating-action" id="floating-action" style="display: none;">
+        <button type="submit" class="btn btn-primary btn-lg">
+            <i class="bi bi-magic me-2"></i>
+            Generate README (<span id="fab-count">0</span>)
+        </button>
+    </div>
+</form>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Intercept form submission
+    document.getElementById('repo-form').addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        const checkboxes = document.querySelectorAll('.repo-checkbox:checked');
+        if (checkboxes.length === 0) {
+            alert('Please select at least one repository');
+            return;
+        }
+        
+        const selectedRepos = Array.from(checkboxes).map(cb => cb.value);
+        
+        App.showLoading(`Generating README for ${selectedRepos.length} repository(s)... This may take a moment.`);
+        
+        fetch('/generate', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ repos: selectedRepos })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success && data.redirect) {
+                window.location.href = data.redirect;
+            } else if (data.error) {
+                App.hideLoading();
+                alert('Error: ' + data.error);
+            }
+        })
+        .catch(error => {
+            App.hideLoading();
+            console.error('Error:', error);
+            alert('Failed to generate README. Please try again.');
+        });
+    });
+    
+    // Search functionality
+    const searchInput = document.getElementById('search-input');
+    const repoItems = document.querySelectorAll('.repo-item');
+    
+    searchInput.addEventListener('input', function() {
+        const query = this.value.toLowerCase();
+        repoItems.forEach(item => {
+            const name = item.dataset.name;
+            item.style.display = name.includes(query) ? '' : 'none';
+        });
+    });
+    
+    // Filter functionality
+    const filterPills = document.querySelectorAll('.filter-pill');
+    filterPills.forEach(pill => {
+        pill.addEventListener('click', function() {
+            // Update active state
+            filterPills.forEach(p => p.classList.remove('active'));
+            this.classList.add('active');
+            
+            const filter = this.dataset.filter;
+            
+            repoItems.forEach(item => {
+                let show = true;
+                
+                if (filter === 'public') {
+                    show = item.dataset.visibility === 'public';
+                } else if (filter === 'private') {
+                    show = item.dataset.visibility === 'private';
+                } else if (filter === 'no-readme') {
+                    show = item.dataset.hasReadme === 'no';
+                }
+                
+                item.style.display = show ? '' : 'none';
+            });
+        });
+    });
+});
+
+function toggleSelect(card) {
+    card.classList.toggle('selected');
+    const checkbox = card.querySelector('.repo-checkbox');
+    const visibleCheckbox = card.querySelector('.form-check-input');
+    checkbox.checked = !checkbox.checked;
+    visibleCheckbox.checked = checkbox.checked;
+    updateSelectedCount();
+    updateSelectAllState();
+}
+
+function toggleSelectAll() {
+    const selectAllCheckbox = document.getElementById('select-all-checkbox');
+    const visibleCards = document.querySelectorAll('.repo-item:not([style*="display: none"])');
+    
+    visibleCards.forEach(item => {
+        const card = item.querySelector('.repo-card');
+        const hiddenCheckbox = card.querySelector('.repo-checkbox');
+        const visibleCheckbox = card.querySelector('.form-check-input');
+        
+        hiddenCheckbox.checked = selectAllCheckbox.checked;
+        visibleCheckbox.checked = selectAllCheckbox.checked;
+        card.classList.toggle('selected', selectAllCheckbox.checked);
+    });
+    
+    updateSelectedCount();
+}
+
+function updateSelectAllState() {
+    const selectAllCheckbox = document.getElementById('select-all-checkbox');
+    const visibleCards = document.querySelectorAll('.repo-item:not([style*="display: none"])');
+    const visibleChecked = document.querySelectorAll('.repo-item:not([style*="display: none"]) .repo-checkbox:checked');
+    
+    selectAllCheckbox.checked = visibleCards.length > 0 && visibleCards.length === visibleChecked.length;
+}
+
+function updateSelectedCount() {
+    const count = document.querySelectorAll('.repo-checkbox:checked').length;
+    document.getElementById('selected-count').textContent = count;
+    document.getElementById('fab-count').textContent = count;
+    
+    const fab = document.getElementById('floating-action');
+    fab.style.display = count > 0 ? 'block' : 'none';
+}
+
+// Initialize visible checkboxes
+document.querySelectorAll('.form-check-input:not(#select-all-checkbox)').forEach(checkbox => {
+    checkbox.addEventListener('change', function(e) {
+        const card = this.closest('.repo-card');
+        const hiddenCheckbox = card.querySelector('.repo-checkbox');
+        hiddenCheckbox.checked = this.checked;
+        card.classList.toggle('selected', this.checked);
+        updateSelectedCount();
+        updateSelectAllState();
+    });
+});
+</script>
+{% endblock %}

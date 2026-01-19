@@ -58,7 +58,7 @@ A Flask web application with a multi-agent backend that:
 | **Backend** | Flask |
 | **Frontend** | Jinja2 + Bootstrap 5 |
 | **GitHub API** | PyGithub |
-| **LLM** | OpenAI API (GPT-4) |
+| **LLM** | ollama (suitable model) |
 | **Database** | SQLite (session storage) |
 
 ---
@@ -66,11 +66,11 @@ A Flask web application with a multi-agent backend that:
 ## 📁 Project Structure
 
 ```
-github-readme-agent/
+Multi-Agent-GitHub-README-Updater/
 ├── app.py                 # Flask application entry point
 ├── config.py              # Configuration
 ├── requirements.txt
-├── .env.example
+├── .env
 │
 ├── agents/                # AI Agents
 │   ├── __init__.py
@@ -169,36 +169,53 @@ python app.py
                            │
                            ▼
 ┌──────────────────────────────────────────────────────────┐
-│                      Agents                               │
+│                  Multi-Agent Pipeline                     │
 │                                                          │
-│  1. Discovery Agent  →  Fetch repos from GitHub          │
-│  2. Analyzer Agent   →  Analyze code & structure         │
-│  3. Generator Agent  →  Create README with LLM           │
-│  4. Writer Agent     →  Commit/PR to GitHub              │
+│  ┌─────────────┐   ┌─────────────┐   ┌─────────────┐     │
+│  │  Analyzer   │ → │  Generator  │ → │  Reviewer   │     │
+│  │   Agent     │   │   Agent     │   │   Agent     │     │
+│  │  (LLM) 🧠   │   │  (LLM) ✍️   │   │  (LLM) 🔍   │     │
+│  └─────────────┘   └─────────────┘   └─────────────┘     │
+└──────────────────────────────────────────────────────────┘
+                           │
+                           ▼
+┌──────────────────────────────────────────────────────────┐
+│                      Services                             │
+│                                                          │
+│  • GitHubService    - GitHub API operations              │
+│  • BackupService    - README backup/restore              │
+│  • LLMService       - Ollama integration                 │
+│  • DiscoveryService - Repository filtering               │
+│  • WriterService    - Commit/PR operations               │
 └──────────────────────────────────────────────────────────┘
 ```
 
-### Agent Details
+### AI Agents (LLM-Powered)
 
-**1. Discovery Agent**
-- Fetches all repos for the authenticated user
-- Collects metadata: language, stars, description, topics
+**1. Analyzer Agent** 🧠
+- Uses LLM to understand project purpose
+- Detects project type (web app, CLI, library, etc.)
+- Identifies key features from code analysis
+- Determines target audience and complexity
 
-**2. Analyzer Agent**
-- **Backs up existing README** to local storage first
-- Reads file structure via GitHub API
-- Detects: language, frameworks, dependencies
-- Parses existing README (if any)
+**2. Generator Agent** ✍️
+- Creates comprehensive README content
+- Generates installation and usage instructions
+- Builds tech stack documentation
+- Only includes sections with verified information
 
-**3. Generator Agent**
-- Sends analysis to LLM (OpenAI/Claude)
-- Uses structured prompts for each section
-- Generates: description, installation, usage, etc.
+**3. Reviewer Agent** 🔍
+- Reviews generated README for quality
+- Improves formatting and clarity
+- Ensures professional tone
+- Calculates quality score
 
-**4. Writer Agent**
-- Creates a new branch (optional)
-- Commits the generated README
-- Opens a Pull Request (or direct commit)
+### Services (Non-LLM Utilities)
+
+**GitHubService** - All GitHub API interactions
+**BackupService** - Local README backup storage
+**DiscoveryService** - Repository filtering and sorting
+**WriterService** - Commit and PR operations
 
 ---
 
