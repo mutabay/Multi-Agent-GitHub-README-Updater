@@ -1,12 +1,9 @@
 """
 Discovery Service - Repository discovery and filtering
 
-This is a SERVICE (not an Agent) because it does not use LLM.
 It handles:
 - Filtering and sorting repositories
 - Aggregating repository statistics
-
-NOTE: Only LLM-powered components are called Agents.
 """
 
 from typing import List, Dict, Optional

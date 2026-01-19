@@ -6,8 +6,6 @@ This agent is responsible for:
 - Checking for completeness and accuracy
 - Suggesting improvements
 - Ensuring professional formatting
-
-This is a TRUE AGENT that uses LLM for intelligent review.
 """
 
 from typing import Dict
@@ -38,10 +36,10 @@ class ReviewerAgent:
             print("🔍 Reviewer Agent: Reviewing and improving README...")
             improved = llm_service.generate(prompt, temperature=0.3, max_tokens=2048)
             improved = self._clean_response(improved)
-            print("✅ Reviewer Agent: Review complete!")
+            print("Reviewer Agent: Review complete!")
             return improved
         except Exception as e:
-            print(f"⚠️ Reviewer Agent failed: {e}, returning original")
+            print(f"Reviewer Agent failed: {e}, returning original")
             return readme_content
     
     def _build_review_prompt(self, readme_content: str, analysis: Dict) -> str:

@@ -6,8 +6,6 @@ This agent is responsible for:
 - Using LLM to understand project purpose and architecture
 - Detecting frameworks and dependencies
 - Preparing intelligent analysis for README generation
-
-This is a TRUE AGENT that uses LLM for intelligent analysis.
 """
 
 from typing import Dict, List
@@ -15,7 +13,7 @@ import re
 
 
 class AnalyzerAgent:
-    """Agent that analyzes repository content using LLM intelligence"""
+    """Agent that analyzes repository content using LLM"""
     
     def __init__(self):
         """Initialize Analyzer Agent"""
@@ -70,14 +68,14 @@ class AnalyzerAgent:
                 intelligent_analysis = self._intelligent_analyze(analysis, file_contents, llm_service)
                 analysis.update(intelligent_analysis)
             except Exception as e:
-                print(f"⚠️ Analyzer Agent LLM analysis failed: {e}")
+                print(f"Analyzer Agent LLM analysis failed: {e}")
         
         return analysis
     
     def _intelligent_analyze(self, basic_analysis: Dict, file_contents: Dict, llm_service) -> Dict:
         """Use LLM to provide intelligent project insights"""
         
-        print("🔬 Analyzer Agent: Performing intelligent analysis...")
+        print("Analyzer Agent: Performing intelligent analysis...")
         
         # Build context for LLM
         structure_summary = self._summarize_structure(basic_analysis.get('structure', []))
@@ -165,7 +163,7 @@ IMPORTANT: Do not make things up. If you can't determine something, use empty st
             
             return result
         except Exception as e:
-            print(f"⚠️ Could not parse LLM insights: {e}")
+            print(f"Could not parse LLM insights: {e}")
             return {}
     
     def _summarize_structure(self, structure: List[Dict], max_items: int = 20) -> str:

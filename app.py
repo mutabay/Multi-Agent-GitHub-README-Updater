@@ -34,9 +34,21 @@ from agents.writer import WriterService
 app = Flask(__name__)
 app.secret_key = os.getenv('SECRET_KEY', 'dev-secret-key-change-in-production')
 
-# Configuration - Use llama3.1:8b for better README generation (great at following instructions)
+# LLM Configuration - Supports multiple providers
+# Provider Options:
+#   - 'ollama' (default): Local models via Ollama
+#   - 'openai': OpenAI GPT models (requires OPENAI_API_KEY)
+#
+# Environment Variables:
+#   LLM_PROVIDER=ollama|openai (default: ollama)
+#   OLLAMA_MODEL=llama3.1:8b (for Ollama)
+#   OLLAMA_BASE_URL=http://localhost:11434 (for Ollama)
+#   OPENAI_API_KEY=sk-... (for OpenAI)
+#   OPENAI_MODEL=gpt-4|gpt-3.5-turbo (for OpenAI)
+LLM_PROVIDER = os.getenv('LLM_PROVIDER', 'ollama')
 OLLAMA_MODEL = os.getenv('OLLAMA_MODEL', 'llama3.1:8b')
 OLLAMA_BASE_URL = os.getenv('OLLAMA_BASE_URL', 'http://localhost:11434')
+OPENAI_MODEL = os.getenv('OPENAI_MODEL', 'gpt-3.5-turbo')
 
 
 # =============================================================================
@@ -149,7 +161,9 @@ def generate():
         # Initialize services
         github_service = GitHubService(session['github_token'])
         backup_service = BackupService()
-        llm_service = LLMService(model=OLLAMA_MODEL, base_url=OLLAMA_BASE_URL)
+        
+        # Initialize LLM service based on configuration
+        llm_service = LLMService()  # Uses environment variables for provider/model
         
         # Initialize agents (multi-agent pipeline)
         analyzer_agent = AnalyzerAgent()

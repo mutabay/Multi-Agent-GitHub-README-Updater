@@ -32,54 +32,37 @@ class GeneratorAgent:
         Returns:
             Generated README content in Markdown format
         """
-        # If existing README is good and we have minimal info, prefer existing
-        existing_readme = analysis.get('existing_readme', '')
-        has_minimal_info = not analysis.get('dependencies') and not analysis.get('frameworks')
-        
-        if existing_readme and has_minimal_info and len(existing_readme) > 100:
-            print("ℹ️ Existing README is better than what we can generate - keeping it")
-            return existing_readme
-        
         prompt = self._build_prompt(analysis)
         
         try:
-            readme_content = llm_service.generate(prompt, temperature=0.7)
-            
-            # Clean up response if needed
+            readme_content = llm_service.generate(prompt, temperature=0.7, max_tokens=2048)
             readme_content = self._clean_response(readme_content)
             
-            # Check if LLM generated garbage (full of "Unknown" or placeholder text)
-            if self._is_low_quality(readme_content):
-                print("⚠️ LLM generated low-quality content, using existing or fallback")
-                if existing_readme and len(existing_readme) > 100:
-                    return existing_readme
+            # Only check for critical quality issues (like too many "Unknown")
+            if self._has_critical_issues(readme_content):
+                print("Generated README has critical issues, using fallback")
                 return self._generate_fallback(analysis)
             
             return readme_content
             
         except Exception as e:
-            print(f"⚠️ LLM generation failed: {e}")
-            # If existing README exists and is decent, use it
-            if existing_readme and len(existing_readme) > 100:
-                print("ℹ️ Using existing README as fallback")
-                return existing_readme
+            print(f"LLM generation failed: {e}")
             return self._generate_fallback(analysis)
     
-    def _is_low_quality(self, content: str) -> bool:
-        """Check if generated README is low quality"""
-        content_lower = content.lower()
+    def _has_critical_issues(self, content: str) -> bool:
+        """Check only for critical issues that make README unusable"""
+        if len(content) < 50:
+            return True
         
-        # Count red flags
-        red_flags = [
-            content.count('unknown') > 3,
-            content.count('n/a') > 2,
-            '[insert' in content_lower,
-            '[todo' in content_lower,
-            'our team' in content_lower and 'company' not in content_lower,
-            len(content) < 200,
-        ]
+        # Only fail if there are MANY unknowns (more than 5)
+        if content.lower().count('unknown') > 5:
+            return True
         
-        return sum(red_flags) >= 2
+        # Check for placeholders
+        if '[insert' in content.lower() or '[todo]' in content.lower():
+            return True
+        
+        return False
     
     def _build_prompt(self, analysis: Dict) -> str:
         """Build intelligent prompt for README generation"""
@@ -155,17 +138,22 @@ class GeneratorAgent:
         if username:
             sections.append(f"## Author")
         
-        # Determine if this is a personal or organizational account
-        is_personal = True  # Assume personal unless proven otherwise
-        
-        # Check if there's enough information to generate a good README
-        has_enough_info = bool(description or main_purpose or key_features or frameworks or dependencies)
-        
-        if not has_enough_info and existing_readme:
-            # If we don't have enough info and there's an existing README, suggest keeping it
-            note = "\n**NOTE**: This repository has limited detectable information. The existing README may be better. Consider keeping it if it's already good."
+        # Build existing README context with clear instructions
+        if existing_readme:
+            readme_context = f"""
+**Existing README Content**:
+```
+{existing_readme[:1000]}
+```
+
+**YOUR TASK**: Use the existing README as a FOUNDATION. 
+- Extract any good, accurate information from it
+- Fix any issues (corporate language, placeholders, "Unknown" values)
+- Add missing sections based on detected project structure
+- Improve formatting and clarity
+- Keep what's already good, enhance what needs work"""
         else:
-            note = ""
+            readme_context = "**No existing README** - creating from scratch."
         
         prompt = f"""You are writing a README for a PERSONAL GitHub repository (not a company/team project).
 
@@ -176,7 +164,7 @@ class GeneratorAgent:
 {structure_tree}
 ```
 
-{f"**Existing README (reference - improve if you can, but it might already be good)**:{chr(10)}{existing_readme[:800]}" if existing_readme else ""}
+{readme_context}
 
 **CRITICAL RULES - FOLLOW EXACTLY**:
 1. ❌ NEVER use "Unknown", "N/A", "[Insert...]", "[TODO]" - if you don't know, SKIP that part entirely
@@ -187,15 +175,16 @@ class GeneratorAgent:
 6. ✅ DO use simple, direct language (this is ONE person's repo, not a team)
 7. ✅ DO skip any section you can't fill with real information
 8. ✅ DO keep it minimal and honest - better to have 3 good sections than 10 vague ones
-9. ✅ DO use existing README content as a reference if it's already good
+9. ✅ DO extract and preserve good content from existing README (if any)
+10. ✅ DO fix issues in existing README (corporate tone, placeholders, errors)
 
 **Tone**: Simple, direct, personal. Write as if YOU are the {username} explaining your own project.
 
 **Sections to consider** (ONLY include if you have real content):
 {chr(10).join(f"- {s}" for s in sections)}
-{note}
 
-Generate the README now. Keep it SHORT and REAL. No fluff, no corporate speak, no placeholders."""
+Generate the README now. Keep it SHORT and REAL. No fluff, no corporate speak, no placeholders.
+If there's an existing README with good content, BUILD ON IT - fix what's wrong and add what's missing."""
 
         return prompt
     
@@ -241,9 +230,7 @@ Generate the README now. Keep it SHORT and REAL. No fluff, no corporate speak, n
         return content.strip()
     
     def _generate_fallback(self, analysis: Dict) -> str:
-        """Generate minimal README if LLM fails - prefer existing if better"""
-        
-        existing_readme = analysis.get('existing_readme', '')
+        """Generate minimal but well-structured README if LLM fails"""
         
         repo_name = analysis.get('repo_name', '')
         short_name = analysis.get('repo_short_name', 'project')
@@ -253,12 +240,10 @@ Generate the README now. Keep it SHORT and REAL. No fluff, no corporate speak, n
         dependencies = analysis.get('dependencies', [])
         username = analysis.get('username', '')
         structure = analysis.get('structure', [])
+        topics = analysis.get('topics', [])
         
-        # If we have minimal info and existing README is decent, keep it
-        has_minimal_info = not dependencies and not frameworks and not description
-        if has_minimal_info and existing_readme and len(existing_readme) > 50:
-            print("ℹ️ Keeping existing README (better than minimal fallback)")
-            return existing_readme
+        # Check if there's a LICENSE file
+        has_license = any(item.get('name', '').upper().startswith('LICENSE') for item in structure)
         dependencies = analysis.get('dependencies', [])
         username = analysis.get('username', '')
         structure = analysis.get('structure', [])
