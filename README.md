@@ -372,7 +372,6 @@ ollama pull llama3.1:8b
 
 ## 🔮 Future Enhancements
 
-- [ ] Support for other LLM providers (OpenAI, Claude)
 - [ ] Batch processing with progress tracking
 - [ ] Customizable README templates
 - [ ] Multi-language support
@@ -380,11 +379,3 @@ ollama pull llama3.1:8b
 - [ ] README version history and comparison
 
 ---
-
-<div align="center">
-
-**⭐ If you find this project helpful, please give it a star!**
-
-Made with ❤️ and AI
-
-</div>
