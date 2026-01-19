@@ -1,6 +1,9 @@
 # Multi-Agent-GitHub-README-Updater
 GitHub README Updater for having structured README files accross all the repositories.
 
+# Multi-Agent-GitHub-README-Updater
+GitHub README Updater for having structured README files accross all the repositories.
+
 > A Flask web app that uses AI agents to generate professional README files for your GitHub repositories.
 
 [![Python](https://img.shields.io/badge/Python-3.11+-blue.svg)](https://python.org)
@@ -28,9 +31,10 @@ A Flask web application with a multi-agent backend that:
 
 1. **Connects** to your GitHub account (via Personal Access Token)
 2. **Lists** all your repositories with filters
-3. **Analyzes** each repo's code, structure, and existing docs
-4. **Generates** professional README files using AI
-5. **Commits** the new READMEs via PR or direct push
+3. **Backs up** existing README files before any changes
+4. **Analyzes** each repo's code, structure, and existing docs
+5. **Generates** professional README files using AI
+6. **Commits** the new READMEs via PR or direct push
 
 ---
 
@@ -39,6 +43,7 @@ A Flask web application with a multi-agent backend that:
 - 🔐 **Simple Auth** - Just paste your GitHub token
 - 📋 **Repository List** - See all repos with stats (stars, language, last update)
 - 🔍 **Filtering** - Filter by language, name, or select specific repos
+- 💾 **Backup** - Automatically saves existing READMEs before updating
 - 🧠 **Smart Analysis** - Detects tech stack, frameworks, dependencies
 - ✍️ **AI Generation** - Creates structured READMEs with OpenAI/Claude
 - 👁️ **Preview** - Review generated README before committing
@@ -77,7 +82,11 @@ github-readme-agent/
 ├── services/
 │   ├── __init__.py
 │   ├── github_service.py  # GitHub API wrapper
+│   ├── backup_service.py  # README backup handler
 │   └── llm_service.py     # OpenAI/Claude wrapper
+│
+├── backups/                   # Local backup storage
+│   └── {username}_{repo}_{timestamp}.md
 │
 ├── templates/
 │   ├── base.html
@@ -141,9 +150,11 @@ python app.py
 1. Enter your GitHub Personal Access Token
 2. View your repositories
 3. Filter/select repos you want to update
-4. Click "Generate READMEs"
+4. Click "Generate READMEs" (existing READMEs are backed up automatically)
 5. Preview the generated content
 6. Confirm to create PR or commit directly
+
+> 💾 **Backup Note**: All existing README files are saved locally in `/backups` folder before any changes. You can restore them anytime from the web UI.
 
 ---
 
@@ -174,6 +185,7 @@ python app.py
 - Collects metadata: language, stars, description, topics
 
 **2. Analyzer Agent**
+- **Backs up existing README** to local storage first
 - Reads file structure via GitHub API
 - Detects: language, frameworks, dependencies
 - Parses existing README (if any)
@@ -196,6 +208,7 @@ python app.py
 - [ ] Flask app scaffold
 - [ ] GitHub OAuth/token handling
 - [ ] Basic templates
+- [ ] Backup service & storage setup
 
 ### Phase 2: Discovery Agent (Day 2)
 - [ ] Fetch user repos
@@ -221,4 +234,3 @@ python app.py
 - [ ] Preview UI
 - [ ] Error handling
 - [ ] Testing
-
