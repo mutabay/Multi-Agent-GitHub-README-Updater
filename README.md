@@ -374,8 +374,6 @@ ollama pull llama3.1:8b
 
 - [ ] Batch processing with progress tracking
 - [ ] Customizable README templates
-- [ ] Multi-language support
-- [ ] Automated deployment with GitHub Actions
 - [ ] README version history and comparison
 
 ---
