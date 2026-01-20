@@ -7,7 +7,6 @@
 [![Ollama](https://img.shields.io/badge/Ollama-llama3.1-orange.svg)](https://ollama.ai/)
 
 ---
-
 ## 📋 Table of Contents
 
 - [Overview](#-overview)
